@@ -4,7 +4,7 @@ import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import rateLimit from 'express-rate-limit';
 import { env } from './config/env';
-import authRoutes from './modules/auth/auth.routes';
+import apiRoutes from './routes';
 import { errorHandler } from './middleware/error.middleware';
 
 const app = express();
@@ -28,9 +28,9 @@ app.use(express.json());
 app.use(cookieParser());
 
 // Routes
-app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1', apiRoutes);
 
-// Health Check
+// Health Check 
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok' });
 });
