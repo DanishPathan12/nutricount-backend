@@ -11,6 +11,7 @@ const envSchema = z.object({
   JWT_REFRESH_SECRET: z.string().min(32),
   GOOGLE_CLIENT_ID: z.string(),
   FRONTEND_URL: z.string().default('http://localhost:3000'),
+  GEMINI_API_KEY: z.string().default(''),
 });
 
 const envVars = envSchema.safeParse(process.env);
