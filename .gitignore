@@ -1,0 +1,8 @@
+node_modules
+dist
+.env
+coverage
+*.log
+logs
+src/db/migrations/meta
+.env.prod
