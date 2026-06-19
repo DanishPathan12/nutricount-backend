@@ -15,6 +15,13 @@
       "when": 1781703852046,
       "tag": "0001_woozy_the_liberteens",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1781904696684,
+      "tag": "0002_yellow_guardian",
+      "breakpoints": true
     }
   ]
 }

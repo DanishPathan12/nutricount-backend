@@ -42,6 +42,13 @@ export class UserProfilesController {
   getByUserId = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { userId } = req.params;
+      if (req.user?.role !== 'admin') {
+        return res.status(403).json({
+          success: false,
+          message: 'Forbidden: Only admins can list profiles',
+        });
+      }
+
       const profile = await this.service.getProfileByUserId(userId);
       res.status(200).json({
         success: true,
@@ -106,6 +113,13 @@ export class UserProfilesController {
 
   list = async (req: Request, res: Response, next: NextFunction) => {
     try {
+      if (req.user?.role !== 'admin') {
+        return res.status(403).json({
+          success: false,
+          message: 'Forbidden: Only admins can list profiles',
+        });
+      }
+
       let limit = parseInt(req.query.limit as string);
       let offset = parseInt(req.query.offset as string);
 

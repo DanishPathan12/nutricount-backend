@@ -25,7 +25,7 @@ export class AuthService {
       });
     }
 
-    const payload = { userId: user.id, email: user.email };
+    const payload = { userId: user.id, email: user.email, role: user.role };
     const accessToken = createAccessToken(payload);
     const refreshToken = createRefreshToken(payload);
 
@@ -40,7 +40,7 @@ export class AuthService {
       throw new Error('User not found');
     }
 
-    const newPayload = { userId: user.id, email: user.email };
+    const newPayload = { userId: user.id, email: user.email, role: user.role };
     const accessToken = createAccessToken(newPayload);
     const newRefreshToken = createRefreshToken(newPayload);
 
