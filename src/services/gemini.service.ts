@@ -77,4 +77,59 @@ export class GeminiService {
       throw error;
     }
   }
+
+  /**
+   * Analyzes an image and returns structured JSON response.
+   * @param prompt The text prompt/instructions.
+   * @param imageBuffer The image file buffer.
+   * @param mimeType The image mime type (e.g. image/jpeg, image/png).
+   * @param responseSchema Optional schema to enforce output.
+   * @param model Optional model name. Defaults to 'gemini-2.5-flash'.
+   */
+  static async analyzeImage<T>(
+    prompt: string,
+    imageBuffer: Buffer,
+    mimeType: string,
+    responseSchema?: any,
+    model: string = 'gemini-2.5-flash'
+  ): Promise<T> {
+    if (!env.GEMINI_API_KEY) {
+      throw new Error('GEMINI_API_KEY is not configured.');
+    }
+
+    try {
+      const config: any = {
+        responseMimeType: 'application/json',
+      };
+
+      if (responseSchema) {
+        config.responseSchema = responseSchema;
+      }
+
+      const base64Data = imageBuffer.toString('base64');
+
+      const response = await ai.models.generateContent({
+        model,
+        contents: [
+          {
+            inlineData: {
+              mimeType,
+              data: base64Data,
+            },
+          },
+          {
+            text: prompt,
+          },
+        ],
+        config,
+      });
+
+      const text = response.text || '{}';
+      return JSON.parse(text) as T;
+    } catch (error) {
+      console.error('Error in analyzeImage with Gemini:', error);
+      throw error;
+    }
+  }
 }
+
