@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { type InferSelectModel } from 'drizzle-orm';
-import { userProfiles } from '../../db/schema/userProfiles';
+import { userProfiles } from '../../db/schema';
 
 // ==========================================
 // 1. Zod Validation Schemas
@@ -122,6 +122,10 @@ export const UpdateProfileSchema = CreateProfileSchema.partial();
 // 2. TypeScript Types
 // ==========================================
 
-export type UserProfile = InferSelectModel<typeof userProfiles>;
 export type CreateUserProfileInput = z.infer<typeof CreateProfileSchema>;
 export type UpdateUserProfileInput = z.infer<typeof UpdateProfileSchema>;
+export type UserProfile = CreateUserProfileInput & {
+  id: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
