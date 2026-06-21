@@ -16,6 +16,11 @@ const envSchema = z.object({
   AWS_SECRET_ACCESS_KEY: z.string().min(1, 'AWS Secret Access Key is required'),
   AWS_REGION: z.string().min(1, 'AWS Region is required'),
   AWS_S3_BUCKET_NAME: z.string().min(1, 'AWS S3 Bucket Name is required'),
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.string().optional(),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASS: z.string().optional(),
+  SMTP_FROM: z.string().optional(),
 });
 
 const envVars = envSchema.safeParse(process.env);

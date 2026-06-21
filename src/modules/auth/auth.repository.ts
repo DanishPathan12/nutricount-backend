@@ -1,6 +1,6 @@
-import { eq } from 'drizzle-orm';
+import { and, desc, eq, gt } from 'drizzle-orm';
 import { db } from '../../db';
-import { users, type User, type NewUser } from '../../db/schema/users';
+import { users, otps, type User, type NewUser, type Otp, type NewOtp } from '../../db/schema';
 
 export class AuthRepository {
   async findByEmail(email: string): Promise<User | undefined> {
@@ -21,5 +21,30 @@ export class AuthRepository {
   async createUser(user: NewUser): Promise<User> {
     const result = await db.insert(users).values(user).returning();
     return result[0];
+  }
+
+  async createOtp(otpRecord: NewOtp): Promise<Otp> {
+    const result = await db.insert(otps).values(otpRecord).returning();
+    return result[0];
+  }
+
+  async findLatestActiveOtp(email: string): Promise<Otp | undefined> {
+    const result = await db
+      .select()
+      .from(otps)
+      .where(
+        and(
+          eq(otps.email, email),
+          eq(otps.used, false),
+          gt(otps.expiresAt, new Date())
+        )
+      )
+      .orderBy(desc(otps.createdAt))
+      .limit(1);
+    return result[0];
+  }
+
+  async markOtpAsUsed(id: string): Promise<void> {
+    await db.update(otps).set({ used: true }).where(eq(otps.id, id));
   }
 }

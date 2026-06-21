@@ -6,3 +6,4 @@ export * from './userLifestyle';
 export * from './userDietaryPreferences';
 export * from './userHealth';
 export * from './relations';
+export * from './otps';
