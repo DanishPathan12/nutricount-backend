@@ -12,6 +12,10 @@ const envSchema = z.object({
   GOOGLE_CLIENT_ID: z.string(),
   FRONTEND_URL: z.string().default('http://localhost:3600'),
   GEMINI_API_KEY: z.string().default(''),
+  AWS_ACCESS_KEY_ID: z.string().min(1, 'AWS Access Key ID is required'),
+  AWS_SECRET_ACCESS_KEY: z.string().min(1, 'AWS Secret Access Key is required'),
+  AWS_REGION: z.string().min(1, 'AWS Region is required'),
+  AWS_S3_BUCKET_NAME: z.string().min(1, 'AWS S3 Bucket Name is required'),
 });
 
 const envVars = envSchema.safeParse(process.env);
