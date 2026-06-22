@@ -128,4 +128,6 @@ export type UserProfile = CreateUserProfileInput & {
   id: string;
   createdAt: Date;
   updatedAt: Date;
+  role?: 'user' | 'admin';
 };
+

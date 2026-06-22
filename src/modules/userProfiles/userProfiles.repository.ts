@@ -7,6 +7,7 @@ import {
   userLifestyle,
   userDietaryPreferences,
   userHealth,
+  users,
 } from '../../db/schema';
 import type { CreateUserProfileInput, UpdateUserProfileInput } from './userProfiles.schema';
 
@@ -24,6 +25,7 @@ function mapToFlatProfile(profile: any): any {
     targetCalories: profile.targetCalories,
     createdAt: profile.createdAt,
     updatedAt: profile.updatedAt,
+    role: profile.user?.role || profile.role,
 
     // Body Metrics
     heightCm: profile.bodyMetrics?.heightCm,
@@ -63,6 +65,7 @@ export class UserProfilesRepository {
     const profile = await db.query.userProfiles.findFirst({
       where: eq(userProfiles.userId, userId),
       with: {
+        user: true,
         bodyMetrics: true,
         demographics: true,
         lifestyle: true,
@@ -77,6 +80,7 @@ export class UserProfilesRepository {
     const profile = await db.query.userProfiles.findFirst({
       where: eq(userProfiles.id, id),
       with: {
+        user: true,
         bodyMetrics: true,
         demographics: true,
         lifestyle: true,
@@ -161,8 +165,15 @@ export class UserProfilesRepository {
         })
         .returning();
 
+      const [user] = await tx
+        .select({ role: users.role })
+        .from(users)
+        .where(eq(users.id, data.userId))
+        .limit(1);
+
       return {
         ...profile,
+        role: user?.role,
         bodyMetrics,
         demographics,
         lifestyle,
@@ -323,8 +334,15 @@ export class UserProfilesRepository {
         updatedHealth = res;
       }
 
+      const [user] = await tx
+        .select({ role: users.role })
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1);
+
       return {
         ...updatedProfile,
+        role: user?.role,
         bodyMetrics: updatedBodyMetrics,
         demographics: updatedDemographics,
         lifestyle: updatedLifestyle,
@@ -348,6 +366,7 @@ export class UserProfilesRepository {
       limit,
       offset,
       with: {
+        user: true,
         bodyMetrics: true,
         demographics: true,
         lifestyle: true,
