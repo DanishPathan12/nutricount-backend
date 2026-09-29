@@ -10,11 +10,44 @@ import { errorHandler } from './middleware/error.middleware';
 const app = express();
 
 // Security Middleware
-app.use(helmet());
-app.use(cors({
-  origin: env.FRONTEND_URL,
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+  })
+);
+
+const allowedOrigins = [
+  ...env.FRONTEND_URL.split(',').map((url) => url.trim()),
+  'http://localhost:3000',
+  'http://localhost:3600',
+  'http://127.0.0.1:3000',
+  'http://127.0.0.1:3600',
+].filter(Boolean);
+
+const corsOptions: cors.CorsOptions = {
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps, curl, Postman)
+    if (!origin) return callback(null, true);
+
+    if (
+      allowedOrigins.includes(origin) ||
+      env.NODE_ENV === 'development' ||
+      /^http:\/\/localhost:\d+$/.test(origin) ||
+      /^http:\/\/127\.0\.0\.1:\d+$/.test(origin)
+    ) {
+      return callback(null, true);
+    }
+
+    return callback(null, false);
+  },
   credentials: true,
-}));
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
+  exposedHeaders: ['Set-Cookie'],
+};
+
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 
 // Rate Limiting
 const limiter = rateLimit({

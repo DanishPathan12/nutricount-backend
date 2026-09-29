@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { AuthService } from './auth.service';
-import { loginSchema } from './auth.schema';
+import { loginSchema, sendOtpSchema, verifyOtpSchema } from './auth.schema';
 
 export class AuthController {
   private authService: AuthService;
@@ -30,6 +30,45 @@ export class AuthController {
           avatarUrl: user.avatarUrl,
         },
         accessToken,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  sendOtp = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { email, purpose } = sendOtpSchema.parse(req.body);
+      const result = await this.authService.sendOtp(email, purpose);
+
+      res.status(200).json(result);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  verifyOtp = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { email, otp, name } = verifyOtpSchema.parse(req.body);
+      const { user, accessToken, refreshToken, isNewUser } = await this.authService.verifyOtp(email, otp, name);
+
+      res.cookie('refreshToken', refreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+      });
+
+      res.status(200).json({
+        success: true,
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          avatarUrl: user.avatarUrl,
+        },
+        accessToken,
+        isNewUser,
       });
     } catch (error) {
       next(error);

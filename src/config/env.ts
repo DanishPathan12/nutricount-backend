@@ -12,6 +12,11 @@ const envSchema = z.object({
   GOOGLE_CLIENT_ID: z.string(),
   FRONTEND_URL: z.string().default('http://localhost:3000'),
   GEMINI_API_KEY: z.string().default(''),
+  SMTP_HOST: z.string().default('smtp.gmail.com'),
+  SMTP_PORT: z.string().default('587'),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASS: z.string().optional(),
+  SMTP_FROM: z.string().optional(),
 });
 
 const envVars = envSchema.safeParse(process.env);
