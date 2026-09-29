@@ -2,6 +2,8 @@ import { pgEnum, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 import { userProfiles } from './userProfiles';
 
+import { chatSessions, chatMessages } from './chat';
+
 export const userRoleEnum = pgEnum('user_role', ['user', 'admin']);
 
 export const users = pgTable('users', {
@@ -16,8 +18,10 @@ export const users = pgTable('users', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
-export const usersRelations = relations(users, ({ one }) => ({
+export const usersRelations = relations(users, ({ one, many }) => ({
   profile: one(userProfiles),
+  chatSessions: many(chatSessions),
+  chatMessages: many(chatMessages),
 }));
 
 export type User = typeof users.$inferSelect;

@@ -1,78 +1,189 @@
 import { Request, Response, NextFunction } from 'express';
-import { UserProfilesService } from '../userProfiles/userProfiles.service';
-import { GeminiService } from '../../services/gemini.service';
-import { AskQuestionSchema } from './fitnessChat.schema';
+import { FitnessChatService } from './fitnessChat.service';
+import {
+  SendMessageSchema,
+  CreateSessionSchema,
+  UpdateSessionSchema,
+  PaginationQuerySchema,
+  SessionIdParamSchema,
+} from './fitnessChat.schema';
 
 export class FitnessChatController {
-  private userProfilesService: UserProfilesService;
+  private service: FitnessChatService;
 
   constructor() {
-    this.userProfilesService = new UserProfilesService();
+    this.service = new FitnessChatService();
   }
 
+  /**
+   * Send a message / ask a question.
+   * If sessionId is provided in body, appends to that session.
+   * If not provided, a new session is auto-created.
+   */
   askQuestion = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      // 1. Validate the user message input
-      const { message } = AskQuestionSchema.parse(req.body);
+      const { message, sessionId } = SendMessageSchema.parse(req.body);
       const userId = req.user!.userId;
 
-      // 2. Fetch the user's profile to build the context (handle missing profile gracefully)
-      let profile = null;
-      try {
-        profile = await this.userProfilesService.getProfileByUserId(userId);
-      } catch (error) {
-        // Profile not set up yet
-      }
+      const result = await this.service.sendMessage(userId, message, sessionId);
 
-      // 3. Build personalized context for Gemini
-      let profileContext = '';
-      if (profile) {
-        profileContext = `User Profile Context:
-- Name: ${profile.firstName} ${profile.lastName}
-- Age: ${profile.age} years old
-- Gender: ${profile.gender}
-- Height: ${profile.heightCm} cm
-- Weight: ${profile.weightKg} kg
-- Target Weight: ${profile.targetWeightKg ? `${profile.targetWeightKg} kg` : 'Not specified'}
-- Activity Level: ${profile.activityLevel}
-- Fitness/Nutrition Goal: ${profile.goal}
-- Diet Type: ${profile.dietType}
-- Allergies: ${profile.allergies && profile.allergies.length > 0 ? profile.allergies.join(', ') : 'None'}
-- Disliked Foods: ${profile.dislikedFoods && profile.dislikedFoods.length > 0 ? profile.dislikedFoods.join(', ') : 'None'}
-- Preferred Cuisine: ${profile.preferredCuisine && profile.preferredCuisine.length > 0 ? profile.preferredCuisine.join(', ') : 'None'}
-- Health Conditions: ${profile.conditions && profile.conditions.length > 0 ? profile.conditions.join(', ') : 'None'}
-- Medications: ${profile.medications && profile.medications.length > 0 ? profile.medications.join(', ') : 'None'}
-- Lifestyle: Smoking - ${profile.smoking ? 'Yes' : 'No'}, Alcohol - ${profile.alcohol ? 'Yes' : 'No'}
-- Workout Frequency: ${profile.workoutDaysPerWeek !== null ? `${profile.workoutDaysPerWeek} days/week` : 'Not specified'}
-- Sleep: ${profile.sleepHours !== null ? `${profile.sleepHours} hours/night` : 'Not specified'}`;
-      } else {
-        profileContext = `User Profile Context:
-- The user has not completed their profile setup yet. Avoid personalized metrics references, and politely remind/encourage them to set up their profile for tailored suggestions.`;
-      }
-
-      // 4. Construct the prompt for Gemini
-      const prompt = `You are a certified fitness trainer and expert nutritionist on the Nutricount app.
-Your objective is to provide evidence-based, supportive, and clear answers to fitness, workout, diet, or nutrition questions.
-Use the provided User Profile Context to personalize your advice where appropriate. If profile metrics are missing, provide general guidance and suggest completing their profile.
-Keep your answer structured with clean markdown (using headers, bullet points, or bold text) to make it readable and user-friendly.
-
----
-${profileContext}
----
-
-Question: ${message}
-
-Response:`;
-
-      // 5. Query Gemini Service
-      const response = await GeminiService.generateText(prompt);
-
-      // 6. Return response
       res.status(200).json({
         success: true,
-        data: {
-          response,
-        },
+        data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * Explicitly create a new chat session.
+   */
+  createSession = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { title } = CreateSessionSchema.parse(req.body || {});
+      const userId = req.user!.userId;
+
+      const session = await this.service.createSession(userId, title);
+
+      res.status(201).json({
+        success: true,
+        data: session,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * List all chat sessions for the authenticated user (paginated).
+   */
+  getSessions = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { limit, offset } = PaginationQuerySchema.parse(req.query);
+      const userId = req.user!.userId;
+
+      const result = await this.service.getUserSessions(userId, limit, offset);
+
+      res.status(200).json({
+        success: true,
+        data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * Get a specific session and its full message history.
+   */
+  getSessionById = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { sessionId } = SessionIdParamSchema.parse(req.params);
+      const { limit, offset } = PaginationQuerySchema.parse(req.query);
+      const userId = req.user!.userId;
+
+      const result = await this.service.getSessionWithMessages(sessionId, userId, limit, offset);
+
+      res.status(200).json({
+        success: true,
+        data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * Get only messages for a specific session.
+   */
+  getSessionMessages = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { sessionId } = SessionIdParamSchema.parse(req.params);
+      const { limit, offset } = PaginationQuerySchema.parse(req.query);
+      const userId = req.user!.userId;
+
+      const messages = await this.service.getSessionMessages(sessionId, userId, limit, offset);
+
+      res.status(200).json({
+        success: true,
+        data: messages,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * Send a message to an explicit session via URL param.
+   */
+  sendMessageToSession = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { sessionId } = SessionIdParamSchema.parse(req.params);
+      const { message } = SendMessageSchema.parse({ ...req.body, sessionId });
+      const userId = req.user!.userId;
+
+      const result = await this.service.sendMessage(userId, message, sessionId);
+
+      res.status(200).json({
+        success: true,
+        data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * Rename / update a chat session's title.
+   */
+  updateSessionTitle = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { sessionId } = SessionIdParamSchema.parse(req.params);
+      const { title } = UpdateSessionSchema.parse(req.body);
+      const userId = req.user!.userId;
+
+      const session = await this.service.updateSessionTitle(sessionId, userId, title);
+
+      res.status(200).json({
+        success: true,
+        data: session,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * Delete a specific chat session and all its messages.
+   */
+  deleteSession = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { sessionId } = SessionIdParamSchema.parse(req.params);
+      const userId = req.user!.userId;
+
+      await this.service.deleteSession(sessionId, userId);
+
+      res.status(200).json({
+        success: true,
+        message: 'Chat session deleted successfully',
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * Clear all chat sessions and history for the authenticated user.
+   */
+  clearAllSessions = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userId = req.user!.userId;
+      const count = await this.service.clearUserHistory(userId);
+
+      res.status(200).json({
+        success: true,
+        message: `Deleted ${count} chat session(s) successfully`,
       });
     } catch (error) {
       next(error);
