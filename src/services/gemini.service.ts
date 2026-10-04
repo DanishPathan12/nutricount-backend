@@ -1,12 +1,12 @@
+import axios from 'axios';
 import { GoogleGenAI } from '@google/genai';
 import { env } from '../config/env';
 
-// Initialize the GoogleGenAI client
-// If the API key is not configured, we'll log a warning.
+// Initialize the GoogleGenAI client (used for in-process fallback)
 const apiKey = env.GEMINI_API_KEY;
 
 if (!apiKey) {
-  console.warn('⚠️ Warning: GEMINI_API_KEY is not set in the environment variables. AI features may fail.');
+  console.warn('⚠️ Warning: GEMINI_API_KEY is not set in the environment variables. In-process AI features may fail.');
 }
 
 export const ai = new GoogleGenAI({
@@ -51,14 +51,44 @@ async function withRetry<T>(
 
 /**
  * Service class for Gemini AI features.
+ * Dispatches to dedicated FastAPI AI microservice when running,
+ * and seamlessly falls back to in-process GoogleGenAI client.
  */
 export class GeminiService {
   /**
+   * Helper to call the FastAPI AI microservice.
+   * Returns null if service is offline/unreachable so in-process fallback runs.
+   */
+  private static async callAiService<T>(endpoint: string, payload: any): Promise<T | null> {
+    if (!env.AI_SERVICE_URL) return null;
+    try {
+      const response = await axios.post(`${env.AI_SERVICE_URL}${endpoint}`, payload, {
+        timeout: 45000,
+        headers: { 'Content-Type': 'application/json' },
+      });
+      if (response.data && response.data.success) {
+        return response.data.data as T;
+      }
+    } catch (error: any) {
+      // If service is not running or connection refused, log info and fallback
+      if (error?.code !== 'ECONNREFUSED' && error?.code !== 'ENOTFOUND') {
+        console.warn(`[AI-Service] Call to ${env.AI_SERVICE_URL}${endpoint} returned error, falling back:`, error?.message || error);
+      }
+    }
+    return null;
+  }
+
+  /**
    * Generates a text response from the Gemini model.
-   * @param prompt The prompt to send to the Gemini model.
-   * @param model Optional model name. Defaults to 'gemini-2.5-flash'.
    */
   static async generateText(prompt: string, model: string = 'gemini-2.5-flash'): Promise<string> {
+    // 1. Try FastAPI AI microservice
+    const remote = await this.callAiService<{ text: string }>('/api/v1/ai/generate-text', { prompt, model });
+    if (remote?.text) {
+      return remote.text;
+    }
+
+    // 2. In-process fallback
     if (!env.GEMINI_API_KEY) {
       throw new Error('GEMINI_API_KEY is not configured.');
     }
@@ -80,15 +110,19 @@ export class GeminiService {
 
   /**
    * Generates a structured JSON response from the Gemini model.
-   * @param prompt The prompt detailing the instructions and output schema.
-   * @param responseSchema Optional Zod or JSON schema description to enforce JSON output.
-   * @param model Optional model name. Defaults to 'gemini-2.5-flash'.
    */
   static async generateJSON<T>(
     prompt: string,
     responseSchema?: any,
     model: string = 'gemini-2.5-flash'
   ): Promise<T> {
+    // 1. Try FastAPI AI microservice
+    const remote = await this.callAiService<{ json_data: T }>('/api/v1/ai/generate-json', { prompt, model });
+    if (remote?.json_data) {
+      return remote.json_data;
+    }
+
+    // 2. In-process fallback
     if (!env.GEMINI_API_KEY) {
       throw new Error('GEMINI_API_KEY is not configured.');
     }
@@ -120,10 +154,6 @@ export class GeminiService {
 
   /**
    * Generates a conversational response preserving multi-turn chat history.
-   * @param systemInstruction System instruction / persona / context.
-   * @param history Previous messages in the session.
-   * @param newMessage The user's new message.
-   * @param model Optional model name. Defaults to 'gemini-2.5-flash'.
    */
   static async generateChatResponse(
     systemInstruction: string,
@@ -131,13 +161,24 @@ export class GeminiService {
     newMessage: string,
     model: string = 'gemini-2.5-flash'
   ): Promise<string> {
+    // 1. Try FastAPI AI microservice
+    const remote = await this.callAiService<{ response: string }>('/api/v1/ai/chat', {
+      systemInstruction,
+      history,
+      message: newMessage,
+      model,
+    });
+    if (remote?.response) {
+      return remote.response;
+    }
+
+    // 2. In-process fallback
     if (!env.GEMINI_API_KEY) {
       throw new Error('GEMINI_API_KEY is not configured.');
     }
 
     return withRetry(async () => {
       try {
-        // Map history to Google GenAI Content format
         const formattedHistory = history
           .filter((item) => item.role === 'user' || item.role === 'assistant')
           .map((item) => ({
@@ -157,7 +198,6 @@ export class GeminiService {
         return response.text || '';
       } catch (error: any) {
         console.warn('ai.chats attempt failed, attempting fallback prompt:', error?.message || error);
-        // Fallback: format history and system instruction into single prompt
         let fullPrompt = `${systemInstruction}\n\n`;
         if (history.length > 0) {
           fullPrompt += `--- Conversation History ---\n`;
@@ -182,10 +222,6 @@ export class GeminiService {
    * Analyzes an uploaded meal image and/or user meal notes to extract nutrition breakdown.
    */
   static async analyzeMeal(params: AnalyzeMealParams): Promise<MealNutritionAnalysis> {
-    if (!env.GEMINI_API_KEY) {
-      throw new Error('GEMINI_API_KEY is not configured.');
-    }
-
     const {
       imageBuffer,
       imageBase64,
@@ -200,6 +236,23 @@ export class GeminiService {
       base64Data = imageBuffer.toString('base64');
     } else if (imageBase64) {
       base64Data = imageBase64.replace(/^data:image\/[a-zA-Z0-9+.-]+;base64,/, '');
+    }
+
+    // 1. Try FastAPI AI microservice
+    const remote = await this.callAiService<MealNutritionAnalysis>('/api/v1/ai/analyze-meal', {
+      imageBase64: base64Data || undefined,
+      mimeType,
+      notes: notes || undefined,
+      mealType: mealType || undefined,
+      model,
+    });
+    if (remote && remote.mealName) {
+      return remote;
+    }
+
+    // 2. In-process fallback
+    if (!env.GEMINI_API_KEY) {
+      throw new Error('GEMINI_API_KEY is not configured.');
     }
 
     const prompt = `You are a certified sports and clinical nutritionist AI.
@@ -263,7 +316,6 @@ Respond ONLY with a valid JSON object matching this schema:
         });
 
         let rawText = response.text || '{}';
-        // Strip markdown code fences if present
         rawText = rawText.replace(/```(?:json)?/gi, '').replace(/```/g, '').trim();
 
         const parsed = JSON.parse(rawText);
@@ -337,5 +389,3 @@ export interface AnalyzeMealParams {
   mealType?: string | null;
   model?: string;
 }
-
-

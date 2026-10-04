@@ -9,7 +9,9 @@
     "start": "node dist/server.js",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "ai:dev": "./ai-service/run.sh",
+    "ai:test": "ai-service/venv/bin/python ai-service/test_api.py"
   },
   "dependencies": {
     "@google/genai": "^2.9.0",
