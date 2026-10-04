@@ -177,4 +177,165 @@ export class GeminiService {
       }
     });
   }
+
+  /**
+   * Analyzes an uploaded meal image and/or user meal notes to extract nutrition breakdown.
+   */
+  static async analyzeMeal(params: AnalyzeMealParams): Promise<MealNutritionAnalysis> {
+    if (!env.GEMINI_API_KEY) {
+      throw new Error('GEMINI_API_KEY is not configured.');
+    }
+
+    const {
+      imageBuffer,
+      imageBase64,
+      mimeType = 'image/jpeg',
+      notes,
+      mealType,
+      model = 'gemini-2.5-flash',
+    } = params;
+
+    let base64Data = '';
+    if (imageBuffer) {
+      base64Data = imageBuffer.toString('base64');
+    } else if (imageBase64) {
+      base64Data = imageBase64.replace(/^data:image\/[a-zA-Z0-9+.-]+;base64,/, '');
+    }
+
+    const prompt = `You are a certified sports and clinical nutritionist AI.
+Analyze the meal from the provided food image and/or user notes.
+${notes ? `User notes: "${notes}"` : ''}
+${mealType ? `Selected meal category: "${mealType}"` : ''}
+
+Task:
+1. Identify all food items, ingredients, and visible portions.
+2. Estimate accurate total calories (kcal) and macronutrients: protein (g), carbs (g), fat (g), fiber (g), and sugar (g).
+3. Provide an itemized breakdown for each component with its portion and calorie/macro contribution.
+4. Assign an overall healthiness score from 1 (unhealthy) to 10 (exceptionally healthy/balanced).
+5. Give a concise nutritionist feedback note.
+
+Respond ONLY with a valid JSON object matching this schema:
+{
+  "mealName": "Name of the meal (e.g. Avocado Toast with Poached Eggs)",
+  "mealType": "breakfast" | "lunch" | "dinner" | "snack" | "other",
+  "calories": number,
+  "protein": number,
+  "carbs": number,
+  "fat": number,
+  "fiber": number,
+  "sugar": number,
+  "healthScore": number,
+  "confidence": "high" | "medium" | "low",
+  "aiNotes": "Brief nutritionist analysis and tip",
+  "breakdown": [
+    {
+      "foodItem": "Food item name",
+      "portion": "e.g. 2 large eggs or 1 slice",
+      "calories": number,
+      "protein": number,
+      "carbs": number,
+      "fat": number,
+      "fiber": number,
+      "sugar": number
+    }
+  ]
+}`;
+
+    return withRetry(async () => {
+      try {
+        const contents: any[] = [];
+        if (base64Data) {
+          contents.push({
+            inlineData: {
+              data: base64Data,
+              mimeType: mimeType || 'image/jpeg',
+            },
+          });
+        }
+        contents.push({ text: prompt });
+
+        const response = await ai.models.generateContent({
+          model,
+          contents,
+          config: {
+            responseMimeType: 'application/json',
+          },
+        });
+
+        let rawText = response.text || '{}';
+        // Strip markdown code fences if present
+        rawText = rawText.replace(/```(?:json)?/gi, '').replace(/```/g, '').trim();
+
+        const parsed = JSON.parse(rawText);
+
+        return {
+          mealName: parsed.mealName || 'Logged Meal',
+          mealType: ['breakfast', 'lunch', 'dinner', 'snack', 'other'].includes(parsed.mealType)
+            ? parsed.mealType
+            : (mealType as any) || 'other',
+          calories: Math.round(Number(parsed.calories) || 0),
+          protein: Math.round((Number(parsed.protein) || 0) * 10) / 10,
+          carbs: Math.round((Number(parsed.carbs) || 0) * 10) / 10,
+          fat: Math.round((Number(parsed.fat) || 0) * 10) / 10,
+          fiber: Math.round((Number(parsed.fiber) || 0) * 10) / 10,
+          sugar: Math.round((Number(parsed.sugar) || 0) * 10) / 10,
+          healthScore: Math.min(10, Math.max(1, Math.round(Number(parsed.healthScore) || 7))),
+          confidence: ['high', 'medium', 'low'].includes(parsed.confidence) ? parsed.confidence : 'medium',
+          aiNotes: parsed.aiNotes || '',
+          breakdown: Array.isArray(parsed.breakdown)
+            ? parsed.breakdown.map((item: any) => ({
+                foodItem: String(item.foodItem || 'Item'),
+                portion: String(item.portion || '1 serving'),
+                calories: Math.round(Number(item.calories) || 0),
+                protein: Math.round((Number(item.protein) || 0) * 10) / 10,
+                carbs: Math.round((Number(item.carbs) || 0) * 10) / 10,
+                fat: Math.round((Number(item.fat) || 0) * 10) / 10,
+                fiber: Math.round((Number(item.fiber) || 0) * 10) / 10,
+                sugar: Math.round((Number(item.sugar) || 0) * 10) / 10,
+              }))
+            : [],
+        };
+      } catch (error) {
+        console.error('Error analyzing meal with Gemini:', error);
+        throw error;
+      }
+    });
+  }
 }
+
+export interface MealItemBreakdown {
+  foodItem: string;
+  portion: string;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  fiber?: number;
+  sugar?: number;
+}
+
+export interface MealNutritionAnalysis {
+  mealName: string;
+  mealType: 'breakfast' | 'lunch' | 'dinner' | 'snack' | 'other';
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  fiber: number;
+  sugar: number;
+  healthScore: number;
+  breakdown: MealItemBreakdown[];
+  aiNotes: string;
+  confidence: 'high' | 'medium' | 'low';
+}
+
+export interface AnalyzeMealParams {
+  imageBuffer?: Buffer;
+  imageBase64?: string;
+  mimeType?: string;
+  notes?: string | null;
+  mealType?: string | null;
+  model?: string;
+}
+
+
