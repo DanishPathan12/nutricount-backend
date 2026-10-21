@@ -10,7 +10,11 @@ Node.js + Express + TypeScript + Drizzle ORM + PostgreSQL
    ```
 
 2. Configure environment variables in `.env`:
-   - `DATABASE_URL`
+   - `DB_HOST`
+   - `DB_PORT`
+   - `DB_NAME`
+   - `DB_USER`
+   - `DB_PASSWORD`
    - `JWT_ACCESS_SECRET`
    - `JWT_REFRESH_SECRET`
    - `GOOGLE_CLIENT_ID`
@@ -32,4 +36,3 @@ Node.js + Express + TypeScript + Drizzle ORM + PostgreSQL
 - `POST /api/v1/auth/refresh`: Refresh Access Token
 - `POST /api/v1/auth/logout`: Logout
 - `GET /api/v1/auth/me`: Get current user (Protected)
-# nutricount-backend

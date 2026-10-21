@@ -6,3 +6,12 @@ coverage
 logs
 src/db/migrations/meta
 .env.prod
+uploads/*
+!uploads/**/.gitkeep
+
+# Python AI Service
+ai-service/venv/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/

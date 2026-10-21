@@ -1,6 +1,6 @@
 import { FitnessChatRepository } from './fitnessChat.repository';
 import { UserProfilesService } from '../userProfiles/userProfiles.service';
-import { GeminiService } from '../../services/gemini.service';
+import { AiService } from '../../services/ai.service';
 import { AppError } from '../../utils/errors';
 import type { ChatSession, ChatMessage } from '../../db/schema/chat';
 
@@ -115,7 +115,7 @@ export class FitnessChatService {
 
   /**
    * Send a message within a session (or create a new session if none provided),
-   * query Gemini with user profile context and multi-turn conversation history,
+   * query AI microservice with user profile context and multi-turn conversation history,
    * persist both user message and AI response, and return the result.
    */
   async sendMessage(userId: string, message: string, sessionId?: string) {
@@ -188,30 +188,28 @@ Keep your answer structured with clean markdown (using headers, bullet points, o
 ${profileContext}
 ---`;
 
-    // 4. Query Gemini with history
-    const aiReplyText = await GeminiService.generateChatResponse(
-      systemInstruction,
-      recentHistory,
-      message
-    );
-
-    // 5. Persist assistant's reply
-    const assistantMessage = await this.repository.createMessage({
+    // 4. Queue chat task for async processing (to be handled via RabbitMQ)
+    await AiService.queueChatTask({
       sessionId: session.id,
       userId,
-      role: 'assistant',
-      content: aiReplyText,
+      message,
+      systemInstruction,
+      history: recentHistory.map((m) => ({
+        role: m.role as 'user' | 'assistant' | 'system',
+        content: m.content,
+      })),
     });
 
-    // 6. Update session updatedAt
+    // 5. Update session updatedAt
     await this.repository.touchSession(session.id);
 
     return {
       sessionId: session.id,
       sessionTitle: session.title,
       userMessage,
-      reply: assistantMessage,
-      response: aiReplyText, // Backward compatibility for callers expecting `data.response`
+      status: 'pending_async_processing',
+      reply: null,
+      response: null,
     };
   }
 }

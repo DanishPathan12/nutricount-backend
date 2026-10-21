@@ -3,6 +3,7 @@ import { relations } from 'drizzle-orm';
 import { userProfiles } from './userProfiles';
 
 import { chatSessions, chatMessages } from './chat';
+import { dailyMeals } from './dailyMeals';
 
 export const userRoleEnum = pgEnum('user_role', ['user', 'admin']);
 
@@ -22,6 +23,7 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   profile: one(userProfiles),
   chatSessions: many(chatSessions),
   chatMessages: many(chatMessages),
+  dailyMeals: many(dailyMeals),
 }));
 
 export type User = typeof users.$inferSelect;

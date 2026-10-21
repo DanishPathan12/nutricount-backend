@@ -9,10 +9,12 @@
     "start": "node dist/server.js",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "ai:dev": "./ai-service/run.sh",
+    "ai:test": "ai-service/venv/bin/python ai-service/test_api.py"
   },
   "dependencies": {
-    "@google/genai": "^2.9.0",
+    "@types/multer": "^2.2.0",
     "axios": "^1.6.2",
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
@@ -23,6 +25,7 @@
     "google-auth-library": "^9.4.1",
     "helmet": "^7.1.0",
     "jsonwebtoken": "^9.0.2",
+    "multer": "^2.2.0",
     "nodemailer": "^10.0.12",
     "pg": "^8.11.3",
     "yarn": "^1.22.22",

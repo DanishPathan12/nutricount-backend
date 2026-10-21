@@ -117,7 +117,7 @@ export class AuthController {
       if (!user) {
         return res.status(404).json({ success: false, message: 'User not found' });
       }
-
+      
       res.status(200).json({
         success: true,
         user: {
@@ -125,6 +125,7 @@ export class AuthController {
           email: user.email,
           name: user.name,
           avatarUrl: user.avatarUrl,
+          role: user.role,
         },
       });
     } catch (error) {
