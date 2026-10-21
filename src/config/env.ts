@@ -11,8 +11,6 @@ const envSchema = z.object({
   JWT_REFRESH_SECRET: z.string().min(32),
   GOOGLE_CLIENT_ID: z.string(),
   FRONTEND_URL: z.string().default('http://localhost:3000'),
-  GEMINI_API_KEY: z.string().default(''),
-  AI_SERVICE_URL: z.string().default('http://localhost:8000'),
   SMTP_HOST: z.string().default('smtp.gmail.com'),
   SMTP_PORT: z.string().default('587'),
   SMTP_USER: z.string().optional(),

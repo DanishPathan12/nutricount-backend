@@ -24,7 +24,7 @@ const upload = multer({
 // All daily meal routes require user authentication
 router.use(authenticate);
 
-// 1. Upload meal image, parse with Gemini AI, and log in DB
+// 1. Upload meal image and log in DB (AI analysis queued asynchronously)
 router.post('/upload-and-log', upload.single('image'), controller.uploadAndLog);
 
 // 2. Analyze meal image preview without saving to DB (for interactive review in UI)

@@ -11,7 +11,7 @@ import {
   CalendarQuery,
   MealItemBreakdown,
 } from './dailyMeals.schema';
-import { GeminiService, MealNutritionAnalysis } from '../../services/gemini.service';
+import { AiService, MealNutritionAnalysis } from '../../services/ai.service';
 import { AppError } from '../../utils/errors';
 import { DailyMeal, MealType } from '../../db/schema/dailyMeals';
 
@@ -125,27 +125,14 @@ export class DailyMealsService {
       throw new AppError('Either an image file or imageBase64 string must be provided for analysis', 400);
     }
 
-    try {
-      const analysis = await GeminiService.analyzeMeal({
-        imageBuffer,
-        imageBase64,
-        mimeType,
-        notes: input?.notes,
-        mealType: input?.mealType,
-      });
-
-      return analysis;
-    } catch (error: any) {
-      console.error('Failed to analyze meal image:', error);
-      throw new AppError(
-        error?.message || 'Failed to analyze meal image. Please verify your GEMINI_API_KEY or retry.',
-        500
-      );
-    }
+    throw new AppError(
+      'Direct HTTP calls to AI services are disabled. Meal image analysis will be processed asynchronously via RabbitMQ.',
+      501
+    );
   }
 
   /**
-   * 2. Upload image, analyze with Gemini AI, and log meal in one step.
+   * 2. Upload image and log meal in one step (AI analysis queued asynchronously).
    */
   async uploadAndLogMeal(
     userId: string,
@@ -170,22 +157,6 @@ export class DailyMealsService {
       mimeType = saved.mimeType;
     }
 
-    // Run AI analysis
-    let analysis: MealNutritionAnalysis | undefined;
-    try {
-      if (imageBuffer || imageBase64 || input?.notes) {
-        analysis = await GeminiService.analyzeMeal({
-          imageBuffer,
-          imageBase64,
-          mimeType,
-          notes: input?.notes,
-          mealType: input?.mealType,
-        });
-      }
-    } catch (err: any) {
-      console.warn('AI meal parsing encountered an error; falling back to default/manual logging:', err?.message || err);
-    }
-
     const todayStr = new Date().toISOString().split('T')[0];
     const currentTimeStr = new Date().toLocaleTimeString('en-US', {
       hour: '2-digit',
@@ -195,16 +166,16 @@ export class DailyMealsService {
 
     const mealDate = input?.mealDate || todayStr;
     const mealTime = input?.mealTime || currentTimeStr;
-    const mealType = (input?.mealType || analysis?.mealType || 'other') as MealType;
-    const mealName = input?.mealName || analysis?.mealName || (input?.notes ? input.notes.slice(0, 50) : 'Logged Meal');
-    const calories = analysis?.calories ?? 0;
-    const protein = analysis?.protein ?? 0;
-    const carbs = analysis?.carbs ?? 0;
-    const fat = analysis?.fat ?? 0;
-    const fiber = analysis?.fiber ?? 0;
-    const sugar = analysis?.sugar ?? 0;
-    const breakdown = analysis?.breakdown ?? [];
-    const healthScore = analysis?.healthScore ?? 7;
+    const mealType = (input?.mealType || 'other') as MealType;
+    const mealName = input?.mealName || (input?.notes ? input.notes.slice(0, 50) : 'Logged Meal');
+    const calories = 0;
+    const protein = 0;
+    const carbs = 0;
+    const fat = 0;
+    const fiber = 0;
+    const sugar = 0;
+    const breakdown: MealItemBreakdown[] = [];
+    const healthScore = null;
 
     const created = await this.repository.create({
       userId,
@@ -212,7 +183,7 @@ export class DailyMealsService {
       mealTime,
       mealType,
       mealName,
-      description: input?.notes || analysis?.aiNotes || null,
+      description: input?.notes || null,
       imageUrl: storedImageUrl || null,
       calories,
       protein,
@@ -222,7 +193,16 @@ export class DailyMealsService {
       sugar,
       breakdown,
       healthScore,
-      aiAnalysis: analysis ? { ...analysis } : null,
+      aiAnalysis: { status: 'pending_async_processing' },
+    });
+
+    // Queue asynchronous meal analysis task (ready for RabbitMQ consumer)
+    await AiService.queueMealAnalysisTask({
+      mealId: created.id,
+      userId,
+      imageUrl: storedImageUrl || null,
+      notes: input?.notes || null,
+      mealType,
     });
 
     return created;

@@ -169,7 +169,7 @@ export class FitnessChatRepository {
   }
 
   /**
-   * Get recent messages for Gemini context (returns in chronological order).
+   * Get recent messages for AI chat context (returns in chronological order).
    */
   async getRecentSessionMessages(sessionId: string, limit: number = 10): Promise<ChatMessage[]> {
     const messages = await db

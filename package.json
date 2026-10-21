@@ -14,7 +14,6 @@
     "ai:test": "ai-service/venv/bin/python ai-service/test_api.py"
   },
   "dependencies": {
-    "@google/genai": "^2.9.0",
     "@types/multer": "^2.2.0",
     "axios": "^1.6.2",
     "cookie-parser": "^1.4.6",

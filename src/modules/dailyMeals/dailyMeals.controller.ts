@@ -29,7 +29,7 @@ export class DailyMealsController {
 
       res.status(201).json({
         success: true,
-        message: 'Meal logged and analyzed successfully',
+        message: 'Meal logged successfully (AI analysis queued)',
         data: meal,
       });
     } catch (error) {
@@ -38,7 +38,7 @@ export class DailyMealsController {
   };
 
   /**
-   * Analyze image with Gemini AI without creating a record yet.
+   * Analyze image with AI microservice without creating a record yet.
    * Allows the frontend to present an editable preview to the user.
    */
   analyzeImage = async (req: Request, res: Response, next: NextFunction) => {
