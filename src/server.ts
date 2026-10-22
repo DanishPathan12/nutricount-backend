@@ -11,3 +11,4 @@ app.listen(port, async () => {
   // Test database connection on startup
   await testDbConnection();
 });
+  
