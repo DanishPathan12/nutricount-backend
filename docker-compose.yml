@@ -1,0 +1,54 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: danishpc/nutricount-backend:latest
+    container_name: nutricount-backend
+    restart: unless-stopped
+    ports:
+      - "${PORT:-5000}:5000"
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production
+      - PORT=5000
+    volumes:
+      # Persistent volume for meal images and uploads
+      - nutricount-uploads:/app/uploads
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://localhost:5000/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))\""]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  # Optional AI microservice (activate if running on the same EC2 instance)
+  # To run both: docker compose --profile full up -d
+  ai-service:
+    profiles: ["full"]
+    build:
+      context: ./ai-service
+      dockerfile: Dockerfile
+    image: nutricount-ai-service:latest
+    container_name: nutricount-ai-service
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./ai-service/.env
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  nutricount-uploads:
+    driver: local
+

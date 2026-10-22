@@ -1,0 +1,38 @@
+# Dependency and build artifacts
+node_modules
+dist
+coverage
+
+# Environment & secret files (never bake into Docker image)
+.env
+.env.*
+!.env.example
+
+# Git repository
+.git
+.gitignore
+
+# IDE & Editor files
+.vscode
+.idea
+.DS_Store
+Thumbs.db
+
+# Separate microservice (has its own Dockerfile)
+ai-service
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Uploads cache (mount volume in production instead)
+uploads/*
+!uploads/.gitkeep
+
+# Unit tests and temp files
+**/*.spec.ts
+**/*.test.ts
+

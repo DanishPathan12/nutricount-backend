@@ -30,6 +30,20 @@ Node.js + Express + TypeScript + Drizzle ORM + PostgreSQL
    npm run dev
    ```
 
+## Docker & EC2 Deployment
+
+### 1. Build and Run with Docker Compose
+```bash
+# Start backend container in background
+docker compose up -d --build
+
+# (Optional) Start both backend & AI microservice
+docker compose --profile full up -d --build
+```
+
+### 2. EC2 Production Deployment
+See [`DEPLOYMENT.md`](file:///c:/Users/Danish/Desktop/nutricount-backend/DEPLOYMENT.md) for step-by-step instructions on setting up AWS EC2, configuring Security Groups, AWS RDS connections, SSL with Nginx & Certbot, and auto-restart policies.
+
 ## API Endpoints
 
 - `POST /api/v1/auth/google`: Login with Google ID Token
